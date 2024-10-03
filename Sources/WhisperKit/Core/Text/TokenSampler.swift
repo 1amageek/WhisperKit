@@ -5,19 +5,19 @@ import Accelerate
 import CoreML
 import Foundation
 
-public protocol TokenSampling {
+public protocol TokenSampling: Sendable {
     func update(tokens: [Int], logits: MLMultiArray, logProbs: [Float]) -> SamplingResult
     func finalize(tokens: [Int], logProbs: [Float]) -> SamplingResult
 }
 
-public struct SamplingResult {
+public struct SamplingResult: Sendable {
     public var tokens: [Int]
     public var logProbs: [Float]
     public var completed: Bool
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-open class GreedyTokenSampler: TokenSampling {
+public struct GreedyTokenSampler: TokenSampling {
     public var temperature: FloatType
     public var eotToken: Int
     public var decodingOptions: DecodingOptions
@@ -169,7 +169,7 @@ open class GreedyTokenSampler: TokenSampling {
     }
 }
 
-open class BeamSearchTokenSampler: TokenSampling {
+public struct BeamSearchTokenSampler: TokenSampling {
     public var beamSize: Int
     public var eotToken: Int
     public var patience: Float
@@ -192,7 +192,7 @@ open class BeamSearchTokenSampler: TokenSampling {
         }
     }
 
-    public func reset() {
+    public mutating func reset() {
         finishedSequences = []
     }
 

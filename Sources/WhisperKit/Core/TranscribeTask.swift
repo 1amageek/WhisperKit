@@ -6,7 +6,7 @@ import Foundation
 
 /// Responsible for transcribing audio chunk to text using the provided models and configurations.
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-final class TranscribeTask {
+final class TranscribeTask: @unchecked Sendable {
     private var timings: TranscriptionTimings
     private let progress: Progress
     private let audioEncoder: any AudioEncoding
@@ -36,7 +36,7 @@ final class TranscribeTask {
     func run(
         audioArray: [Float],
         decodeOptions: DecodingOptions? = nil,
-        callback: TranscriptionCallback = nil
+        callback: TranscriptionCallback? = nil
     ) async throws -> TranscriptionResult {
         let interval = Logging.beginSignpost("TranscribeAudio", signposter: Logging.TranscribeTask.signposter)
         defer { Logging.endSignpost("TranscribeAudio", interval: interval, signposter: Logging.TranscribeTask.signposter) }
@@ -146,7 +146,7 @@ final class TranscribeTask {
                 Logging.info("Decoding \(formatTimestamp(timeOffset))s - \(formatTimestamp(timeOffsetEnd))s")
 
                 // Overload progress callback to include windowId
-                let decodingCallback: ((TranscriptionProgress) -> Bool?) = { [weak self] progress in
+                let decodingCallback: (@Sendable (TranscriptionProgress) -> Bool?) = { [weak self] progress in
                     guard let self = self, let callback = callback else { return nil }
                     var windowProgress = progress
                     windowProgress.windowId = Int(self.timings.totalDecodingWindows - self.timings.totalDecodingFallbacks)
@@ -258,7 +258,7 @@ final class TranscribeTask {
         func decodeWithFallback(
             encoderSegment encoderOutput: MLMultiArray,
             decodingOptions options: DecodingOptions,
-            callback: TranscriptionCallback = nil
+            callback: TranscriptionCallback? = nil
         ) async throws -> DecodingResult {
             let interval = Logging.beginSignpost("Decode", signposter: Logging.TranscribeTask.signposter)
             defer { Logging.endSignpost("Decode", interval: interval, signposter: Logging.TranscribeTask.signposter) }

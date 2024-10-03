@@ -6,7 +6,7 @@ import CoreML
 import Tokenizers
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public protocol TextDecoding {
+public protocol TextDecoding: Sendable {
     var tokenizer: WhisperTokenizer? { get set }
     var prefillData: WhisperMLModel? { get set }
     var isModelMultilingual: Bool { get set }
@@ -272,36 +272,36 @@ public extension TextDecoding {
 
     static func updateKVCache(keyTensor: MLMultiArray, keySlice: MLMultiArray,
                               valueTensor: MLMultiArray, valueSlice: MLMultiArray,
-                              insertAtIndex index: Int)
-    {
+                              insertAtIndex index: Int) {
         let tensorShape = keyTensor.shape.map { $0.intValue }
         let sliceShape = keySlice.shape.map { $0.intValue }
-        let sliceStrides = keySlice.strides.map { $0.intValue } // same for val
+        let sliceStrides = keySlice.strides.map { $0.intValue }
         let bytesPerSample = MemoryLayout<FloatType>.size
 
-        keyTensor.withUnsafeMutableBytes { keyTensorPointer, keyTargetStrides in
-            keySlice.withUnsafeBytes { keySlicePointer in
-                valueTensor.withUnsafeMutableBytes { valueTensorPointer, valueTargetStrides in
-                    valueSlice.withUnsafeBytes { valueSlicePointer in
-                        // Assuming batch size is always 1
-                        DispatchQueue.concurrentPerform(iterations: tensorShape[1]) { j in
-                            // Slice size is 3 for prefill and 1 for decode loops
-                            for k in 0..<sliceShape[3] {
-                                // Equivalent to:
-                                // `tensor[0, j, 0, k + index] = slice[0, j, 0, k + index]`
-                                let keyDestIndex = j * keyTargetStrides[1] + (index + k) * keyTargetStrides[3]
-                                let keyDest = keyTensorPointer.baseAddress! + keyDestIndex * bytesPerSample
+        for j in 0..<tensorShape[1] {
+            autoreleasepool {
+                keyTensor.withUnsafeMutableBytes { keyTensorPointer, keyTargetStrides in
+                    keySlice.withUnsafeBytes { keySlicePointer in
+                        valueTensor.withUnsafeMutableBytes { valueTensorPointer, valueTargetStrides in
+                            valueSlice.withUnsafeBytes { valueSlicePointer in
+                                let keyTargetStrides = keyTensor.strides.map { $0.intValue }
+                                let valueTargetStrides = valueTensor.strides.map { $0.intValue }
+                                
+                                for k in 0..<sliceShape[3] {
+                                    let keyDestIndex = j * keyTargetStrides[1] + (index + k) * keyTargetStrides[3]
+                                    let keyDest = keyTensorPointer.baseAddress! + keyDestIndex * bytesPerSample
 
-                                let keySliceIndex = j * sliceStrides[1] + k * sliceStrides[3]
-                                let keySlice = keySlicePointer.baseAddress! + keySliceIndex * bytesPerSample
-                                memcpy(keyDest, keySlice, bytesPerSample)
+                                    let keySliceIndex = j * sliceStrides[1] + k * sliceStrides[3]
+                                    let keySlice = keySlicePointer.baseAddress! + keySliceIndex * bytesPerSample
+                                    memcpy(keyDest, keySlice, bytesPerSample)
 
-                                let valDestIndex = j * valueTargetStrides[1] + (index + k) * valueTargetStrides[3]
-                                let valDest = valueTensorPointer.baseAddress! + valDestIndex * bytesPerSample
+                                    let valDestIndex = j * valueTargetStrides[1] + (index + k) * valueTargetStrides[3]
+                                    let valDest = valueTensorPointer.baseAddress! + valDestIndex * bytesPerSample
 
-                                let valSliceIndex = j * sliceStrides[1] + k * sliceStrides[3]
-                                let valSlice = valueSlicePointer.baseAddress! + valSliceIndex * bytesPerSample
-                                memcpy(valDest, valSlice, bytesPerSample)
+                                    let valSliceIndex = j * sliceStrides[1] + k * sliceStrides[3]
+                                    let valSlice = valueSlicePointer.baseAddress! + valSliceIndex * bytesPerSample
+                                    memcpy(valDest, valSlice, bytesPerSample)
+                                }
                             }
                         }
                     }
@@ -339,7 +339,7 @@ public class TextDecoderContextPrefill: WhisperMLModel {
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-open class TextDecoder: TextDecoding, WhisperMLModel {
+open class TextDecoder: TextDecoding, WhisperMLModel, @unchecked Sendable {
     public var model: MLModel?
     public var tokenizer: WhisperTokenizer?
     public var prefillData: WhisperMLModel?
@@ -537,7 +537,7 @@ open class TextDecoder: TextDecoding, WhisperMLModel {
         using decoderInputs: DecodingInputs,
         sampler tokenSampler: TokenSampling,
         options: DecodingOptions,
-        callback: TranscriptionCallback = nil
+        callback: TranscriptionCallback? = nil
     ) async throws -> DecodingResult {
         guard let tokenizer else {
             // Tokenizer required for decoding

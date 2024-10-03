@@ -2,7 +2,7 @@
 //  Copyright © 2024 Argmax, Inc. All rights reserved.
 
 import AVFoundation
-import CoreML
+@preconcurrency import CoreML
 import Foundation
 import Hub
 import os.signpost
@@ -12,6 +12,7 @@ import UIKit
 #elseif canImport(AppKit)
 import AppKit
 #endif
+@preconcurrency import Darwin
 
 // MARK: - Extensions
 
@@ -99,7 +100,7 @@ extension MLModel {
         if #available(macOS 14, iOS 17, watchOS 10, visionOS 1, *) {
             return try await prediction(from: input, options: options)
         } else {
-            return try await Task {
+            return try await Task { @Sendable in
                 try prediction(from: input, options: options)
             }.value
         }
@@ -786,15 +787,18 @@ public func getMemoryUsage() -> UInt64 {
 // MARK: - Singletons
 
 public class Logging {
-    static let shared = Logging()
+    
+    public typealias LoggingCallback = @Sendable (_ message: String) -> Void
+    
+    nonisolated(unsafe) static let shared = Logging()
+    
     var logLevel: LogLevel = .none
 
-    public typealias LoggingCallback = (_ message: String) -> Void
     var loggingCallback: LoggingCallback?
 
     private let logger = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "com.argmax.whisperkit", category: "WhisperKit")
 
-    public enum LogLevel: Int {
+    public enum LogLevel: Int, Sendable {
         case debug = 1
         case info = 2
         case error = 3
@@ -806,6 +810,10 @@ public class Logging {
     }
 
     private init() {}
+    
+    public func set(logLevel: LogLevel) {
+        self.logLevel = logLevel
+    }
 
     public func log(_ items: Any..., separator: String = " ", terminator: String = "\n", type: OSLogType) {
         let message = items.map { "\($0)" }.joined(separator: separator)
@@ -836,7 +844,7 @@ public class Logging {
 }
 
 extension Logging {
-    enum AudioEncoding {
+    enum AudioEncoding: Sendable {
         static let logger = Logger(
             subsystem: Constants.Logging.subsystem,
             category: "AudioEncoding"
@@ -846,7 +854,7 @@ extension Logging {
 }
 
 extension Logging {
-    enum FeatureExtractor {
+    enum FeatureExtractor: Sendable {
         static let logger = Logger(
             subsystem: Constants.Logging.subsystem,
             category: "FeatureExtractor"
@@ -856,7 +864,7 @@ extension Logging {
 }
 
 extension Logging {
-    enum TranscribeTask {
+    enum TranscribeTask: Sendable {
         static let logger = Logger(
             subsystem: Constants.Logging.subsystem,
             category: "TranscribeTask"

@@ -2,7 +2,7 @@
 //  Copyright © 2024 Argmax, Inc. All rights reserved.
 
 import Accelerate
-import AVFoundation
+@preconcurrency import AVFoundation
 import CoreAudio
 import CoreML
 
@@ -13,7 +13,7 @@ public typealias DeviceID = AudioDeviceID
 public typealias DeviceID = String
 #endif
 
-public struct AudioDevice: Identifiable, Hashable {
+public struct AudioDevice: Identifiable, Hashable, Sendable {
     public let id: DeviceID
     public let name: String
 }

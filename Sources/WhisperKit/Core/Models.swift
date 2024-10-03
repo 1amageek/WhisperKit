@@ -3,10 +3,10 @@
 
 import Accelerate
 import AVFAudio
-import CoreML
+@preconcurrency import CoreML
 import Hub
 import NaturalLanguage
-import Tokenizers
+@preconcurrency import Tokenizers
 
 #if !((os(macOS) || targetEnvironment(macCatalyst)) && arch(x86_64))
 public typealias FloatType = Float16
@@ -27,7 +27,7 @@ public protocol WhisperMLModel: AnyObject {
     func unloadModel()
 }
 
-public extension WhisperMLModel {
+extension WhisperMLModel {
     func loadModel(at modelPath: URL, computeUnits: MLComputeUnits, prewarmMode: Bool = false) async throws {
         let loadedModel = try await Task {
             let modelConfig = MLModelConfiguration()
@@ -49,7 +49,7 @@ public extension WhisperMLModel {
 
 // MARK: - Whisper Models
 
-public enum ModelVariant: CustomStringConvertible, CaseIterable {
+public enum ModelVariant: CustomStringConvertible, CaseIterable, Sendable {
     case tiny
     case tinyEn
     case base
@@ -100,7 +100,7 @@ public enum ModelVariant: CustomStringConvertible, CaseIterable {
     }
 }
 
-public enum ModelState: CustomStringConvertible {
+public enum ModelState: CustomStringConvertible, Sendable {
     case unloading
     case unloaded
     case loading
@@ -167,14 +167,14 @@ public struct ModelComputeOptions {
 
 // MARK: - Chunking
 
-public struct AudioChunk {
+public struct AudioChunk: Sendable {
     public var seekOffsetIndex: Int
     public var audioSamples: [Float]
 }
 
 // MARK: - Decoding
 
-public enum DecodingTask: CustomStringConvertible, CaseIterable {
+public enum DecodingTask: CustomStringConvertible, CaseIterable, Sendable {
     case transcribe
     case translate
 
@@ -188,7 +188,7 @@ public enum DecodingTask: CustomStringConvertible, CaseIterable {
     }
 }
 
-public struct DecodingInputs {
+public struct DecodingInputs: @unchecked Sendable {
     public var initialPrompt: [Int]
     public var inputIds: MLMultiArray
     public var cacheLength: MLMultiArray
@@ -236,7 +236,7 @@ public struct DecodingInputs {
     }
 }
 
-public struct DecodingCache {
+public struct DecodingCache: Sendable {
     public var keyCache: MLMultiArray?
     public var valueCache: MLMultiArray?
     public var alignmentWeights: MLMultiArray?
@@ -247,13 +247,13 @@ public struct DecodingCache {
     }
 }
 
-public enum ChunkingStrategy: String, CaseIterable {
+public enum ChunkingStrategy: String, CaseIterable, Sendable {
     case none
     case vad
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public struct DecodingFallback {
+public struct DecodingFallback: Sendable {
     public var needsFallback: Bool
     public var fallbackReason: String
 
@@ -291,7 +291,7 @@ public extension DecodingFallback {
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public struct DecodingResult {
+public struct DecodingResult: Sendable {
     public var language: String
     public var languageProbs: [String: Float]
     public var tokens: [Int]
@@ -390,7 +390,7 @@ public enum WhisperError: Error, LocalizedError, Equatable {
 
 // Structs
 
-public struct TranscriptionResult: Codable {
+public struct TranscriptionResult: Codable, Sendable {
     public var text: String
     public var segments: [TranscriptionSegment]
     public var language: String
@@ -478,7 +478,7 @@ public extension TranscriptionResult {
     }
 }
 
-public struct TranscriptionSegment: Hashable, Codable {
+public struct TranscriptionSegment: Hashable, Codable, Sendable {
     public var id: Int = 0
     public var seek: Int = 0
     public var start: Float = 0.0
@@ -493,7 +493,7 @@ public struct TranscriptionSegment: Hashable, Codable {
     public var words: [WordTiming]? = nil
 }
 
-public struct WordTiming: Hashable, Codable {
+public struct WordTiming: Hashable, Codable, Sendable {
     public var word: String
     public var tokens: [Int]
     public var start: Float
@@ -501,7 +501,7 @@ public struct WordTiming: Hashable, Codable {
     public var probability: Float
 }
 
-public struct TranscriptionProgress {
+public struct TranscriptionProgress: Sendable {
     public var timings: TranscriptionTimings
     public var text: String
     public var tokens: [Int]
@@ -531,9 +531,9 @@ public struct TranscriptionProgress {
 ///   - `false`: Stop the transcription process early.
 ///   - `nil`: Continue the transcription process (equivalent to returning `true`).
 /// - Note: This callback should be lightweight and return as quickly as possible to avoid extra decoding loops
-public typealias TranscriptionCallback = ((TranscriptionProgress) -> Bool?)?
+public typealias TranscriptionCallback = @Sendable (TranscriptionProgress) -> Bool?
 
-public struct TranscriptionTimings: Codable {
+public struct TranscriptionTimings: Codable, Sendable {
     public var pipelineStart: CFAbsoluteTime
     public var firstTokenTime: CFAbsoluteTime
     public var inputAudioSeconds: TimeInterval
@@ -996,7 +996,7 @@ public class TextDecoderCachePrefillOutput: MLFeatureProvider {
 
 // MARK: SpecialTokens
 
-public struct SpecialTokens {
+public struct SpecialTokens: Sendable {
     public let endToken: Int
     public let englishToken: Int
     public let noSpeechToken: Int
@@ -1036,7 +1036,7 @@ public struct SpecialTokens {
     }
 }
 
-public protocol WhisperTokenizer: Tokenizer {
+public protocol WhisperTokenizer: Tokenizer, Sendable {
     var specialTokens: SpecialTokens { get }
     var allLanguageTokens: Set<Int> { get }
 
