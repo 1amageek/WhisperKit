@@ -6,12 +6,12 @@ import CoreML
 import Foundation
 import Tokenizers
 
-public protocol LogitsFiltering {
+public protocol LogitsFiltering: Sendable {
     func filterLogits(_ logits: MLMultiArray, withTokens tokens: [Int]) -> MLMultiArray
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-open class SuppressTokensFilter: LogitsFiltering {
+public struct SuppressTokensFilter: LogitsFiltering {
     let suppressTokens: [Int]
     private let suppressTokenIndexes: [[NSNumber]]
 
@@ -27,7 +27,7 @@ open class SuppressTokensFilter: LogitsFiltering {
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-open class SuppressBlankFilter: LogitsFiltering {
+public struct SuppressBlankFilter: LogitsFiltering {
     let specialTokens: SpecialTokens
     let sampleBegin: Int
     private let suppressTokenIndexes: [[NSNumber]]
@@ -55,7 +55,7 @@ open class SuppressBlankFilter: LogitsFiltering {
 
 /// Implementation based on https://github.com/openai/whisper/blob/master/whisper/decoding.py#L441
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-open class TimestampRulesFilter: LogitsFiltering {
+public struct TimestampRulesFilter: LogitsFiltering {
     let specialTokens: SpecialTokens
     let sampleBegin: Int
     let maxInitialTimestampIndex: Int?
@@ -154,7 +154,7 @@ open class TimestampRulesFilter: LogitsFiltering {
 
         guard let logprobsInputDescriptor = BNNSNDArrayDescriptor(
             data: logprobsInputPointer,
-            scalarType: FloatType.self,
+            scalarType: Float16.self,
             shape: .vector(logits.count, stride: 1)
         ) else {
             Logging.error("Cannot create `logprobsInputDescriptor`")
@@ -162,7 +162,7 @@ open class TimestampRulesFilter: LogitsFiltering {
         }
 
         let logprobs = BNNSNDArrayDescriptor.allocateUninitialized(
-            scalarType: FloatType.self,
+            scalarType: Float16.self,
             shape: .vector(logits.count, stride: 1)
         )
         defer { logprobs.deallocate() }
@@ -246,7 +246,7 @@ open class TimestampRulesFilter: LogitsFiltering {
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-open class LanguageLogitsFilter: LogitsFiltering {
+public struct LanguageLogitsFilter: LogitsFiltering {
     let allLanguageTokens: Set<Int>
     let logitsDim: Int
     let sampleBegin: Int

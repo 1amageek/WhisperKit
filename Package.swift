@@ -7,7 +7,7 @@ let package = Package(
     name: "whisperkit",
     platforms: [
         .iOS(.v16),
-        .macOS(.v13),
+        .macOS(.v15),
     ],
     products: [
         .library(

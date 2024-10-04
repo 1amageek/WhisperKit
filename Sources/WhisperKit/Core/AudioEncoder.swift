@@ -1,7 +1,7 @@
 //  For licensing see accompanying LICENSE.md file.
 //  Copyright © 2024 Argmax, Inc. All rights reserved.
 
-import CoreML
+@preconcurrency import CoreML
 
 /// AudioEncoding protocol defines the requirements for an audio encoding implementation.
 public protocol AudioEncoding {
@@ -15,7 +15,7 @@ public protocol AudioEncoding {
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class AudioEncoder: AudioEncoding, WhisperMLModel {
+public actor AudioEncoder: @preconcurrency AudioEncoding, @preconcurrency WhisperMLModel {
     public var model: MLModel?
 
     public var embedSize: Int? {

@@ -2,7 +2,7 @@
 //  Copyright © 2024 Argmax, Inc. All rights reserved.
 
 import Accelerate
-import CoreML
+@preconcurrency import CoreML
 import Tokenizers
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
@@ -334,12 +334,12 @@ public extension TextDecoding {
     }
 }
 
-public class TextDecoderContextPrefill: WhisperMLModel {
+public actor TextDecoderContextPrefill: @preconcurrency WhisperMLModel {
     public var model: MLModel?
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-open class TextDecoder: TextDecoding, WhisperMLModel, @unchecked Sendable {
+public actor TextDecoder: @preconcurrency TextDecoding, @preconcurrency WhisperMLModel, @unchecked Sendable {
     public var model: MLModel?
     public var tokenizer: WhisperTokenizer?
     public var prefillData: WhisperMLModel?
@@ -537,8 +537,9 @@ open class TextDecoder: TextDecoding, WhisperMLModel, @unchecked Sendable {
         using decoderInputs: DecodingInputs,
         sampler tokenSampler: TokenSampling,
         options: DecodingOptions,
-        callback: TranscriptionCallback? = nil
+        callback: ((TranscriptionProgress) -> Bool?)? = nil
     ) async throws -> DecodingResult {
+
         guard let tokenizer else {
             // Tokenizer required for decoding
             throw WhisperError.tokenizerUnavailable()
@@ -591,10 +592,7 @@ open class TextDecoder: TextDecoding, WhisperMLModel, @unchecked Sendable {
         var hasAlignment = false
         var isFirstTokenLogProbTooLow = false
         let windowUUID = UUID()
-        DispatchQueue.global().async { [weak self] in
-            guard let self = self else { return }
-            self.shouldEarlyStop[windowUUID] = false
-        }
+        self.shouldEarlyStop[windowUUID] = false
         for tokenIndex in prefilledIndex..<loopCount {
             let loopStart = Date()
 
@@ -735,8 +733,7 @@ open class TextDecoder: TextDecoding, WhisperMLModel, @unchecked Sendable {
 
                 // Call the callback if it is provided on a background thread to avoid blocking the decoding loop
                 if let callback = callback {
-                    DispatchQueue.global().async { [weak self] in
-                        guard let self = self else { return }
+                    Task {
                         let shouldContinue = callback(result)
                         if let shouldContinue = shouldContinue, !shouldContinue, !isPrefill {
                             Logging.debug("Early stopping")

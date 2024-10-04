@@ -8,3 +8,5 @@
 import CoreML
 
 extension MLModel: @unchecked @retroactive Sendable { }
+extension MLMultiArray: @unchecked @retroactive Sendable { }
+

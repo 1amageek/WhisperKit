@@ -93,7 +93,7 @@ extension MLMultiArray {
 }
 
 extension MLModel {
-    func asyncPrediction(
+    nonisolated func asyncPrediction(
         from input: MLFeatureProvider,
         options: MLPredictionOptions
     ) async throws -> MLFeatureProvider {

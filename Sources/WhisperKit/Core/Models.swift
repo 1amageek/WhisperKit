@@ -8,11 +8,7 @@ import Hub
 import NaturalLanguage
 @preconcurrency import Tokenizers
 
-#if !((os(macOS) || targetEnvironment(macCatalyst)) && arch(x86_64))
 public typealias FloatType = Float16
-#else
-public typealias FloatType = Float
-#endif
 
 #if (os(macOS) || targetEnvironment(macCatalyst)) && arch(arm64) && compiler(<6)
 extension Float16: BNNSScalar {}
@@ -21,14 +17,14 @@ extension Float16: MLShapedArrayScalar {}
 
 // MARK: - CoreML
 
-public protocol WhisperMLModel: AnyObject {
+public protocol WhisperMLModel: AnyObject, Sendable {
     var model: MLModel? { get set }
     func loadModel(at modelPath: URL, computeUnits: MLComputeUnits, prewarmMode: Bool) async throws
     func unloadModel()
 }
 
 extension WhisperMLModel {
-    func loadModel(at modelPath: URL, computeUnits: MLComputeUnits, prewarmMode: Bool = false) async throws {
+    public func loadModel(at modelPath: URL, computeUnits: MLComputeUnits, prewarmMode: Bool = false) async throws {
         let loadedModel = try await Task {
             let modelConfig = MLModelConfiguration()
             modelConfig.computeUnits = computeUnits
@@ -38,11 +34,11 @@ extension WhisperMLModel {
         model = prewarmMode ? nil : loadedModel
     }
 
-    func unloadModel() {
+    public func unloadModel() {
         model = nil
     }
 
-    var modelState: ModelState {
+    public var modelState: ModelState {
         return model == nil ? .unloaded : .loaded
     }
 }
@@ -133,7 +129,7 @@ public enum ModelState: CustomStringConvertible, Sendable {
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public struct ModelComputeOptions {
+public struct ModelComputeOptions: Sendable {
     public var melCompute: MLComputeUnits
     public var audioEncoderCompute: MLComputeUnits
     public var textDecoderCompute: MLComputeUnits
@@ -648,7 +644,7 @@ public struct TranscriptionTimings: Codable, Sendable {
 
 // MARK: MelSpectrogram
 
-public class MelSpectrogramInput: MLFeatureProvider {
+public final class MelSpectrogramInput: MLFeatureProvider {
     /// audio as 480000 element vector of floats
     public var audio: MLMultiArray
 
@@ -674,7 +670,7 @@ public class MelSpectrogramInput: MLFeatureProvider {
 
 /// Model Prediction Output Type
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class MelSpectrogramOutput: MLFeatureProvider {
+public final class MelSpectrogramOutput: MLFeatureProvider {
     /// Source provided by CoreML
     private let provider: MLFeatureProvider
 
@@ -711,7 +707,7 @@ public class MelSpectrogramOutput: MLFeatureProvider {
 
 /// Model Prediction Input Type
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class AudioEncoderInput: MLFeatureProvider {
+public final class AudioEncoderInput: MLFeatureProvider {
     /// melspectrogram_features as 1 × {80,128} × 1 × 3000 4-dimensional array of floats
     public var melspectrogram_features: MLMultiArray
 
@@ -737,7 +733,7 @@ public class AudioEncoderInput: MLFeatureProvider {
 
 /// Model Prediction Output Type
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class AudioEncoderOutput: MLFeatureProvider {
+public final class AudioEncoderOutput: MLFeatureProvider {
     /// Source provided by CoreML
     private let provider: MLFeatureProvider
 
@@ -774,7 +770,7 @@ public class AudioEncoderOutput: MLFeatureProvider {
 
 /// Model Prediction Input Type
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class TextDecoderInput: MLFeatureProvider {
+public final class TextDecoderInput: MLFeatureProvider {
     /// input_ids as 1 element vector of 32-bit integers
     public var input_ids: MLMultiArray
 
@@ -842,7 +838,7 @@ public class TextDecoderInput: MLFeatureProvider {
 
 /// Model Prediction Output Type
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class TextDecoderOutput: MLFeatureProvider {
+public final class TextDecoderOutput: MLFeatureProvider {
     /// Source provided by CoreML
     private let provider: MLFeatureProvider
 
@@ -949,7 +945,7 @@ public class TextDecoderCachePrefillInput: MLFeatureProvider {
 
 /// Model Prediction Output Type
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class TextDecoderCachePrefillOutput: MLFeatureProvider {
+public final class TextDecoderCachePrefillOutput: MLFeatureProvider {
     /// Source provided by CoreML
     private let provider: MLFeatureProvider
 

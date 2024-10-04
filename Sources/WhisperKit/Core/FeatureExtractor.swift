@@ -4,7 +4,7 @@
 import Accelerate
 import AVFoundation
 import CoreGraphics
-import CoreML
+@preconcurrency import CoreML
 import Foundation
 
 public protocol FeatureExtracting {
@@ -13,7 +13,7 @@ public protocol FeatureExtracting {
 }
 
 @available(macOS 13, iOS 16, watchOS 10, visionOS 1, *)
-public class FeatureExtractor: FeatureExtracting, WhisperMLModel {
+public actor FeatureExtractor: @preconcurrency FeatureExtracting, @preconcurrency WhisperMLModel {
     public var model: MLModel?
 
     public init() {}
